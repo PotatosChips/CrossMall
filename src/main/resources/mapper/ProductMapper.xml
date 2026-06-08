@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.cafuc.crossmall.mapper.ProductMapper">
+
+    <!-- 分页查询上架商品列表，支持按分类、商家地区、关键词筛选 -->
+    <select id="selectProductList" resultType="ProductVO">
+        SELECT p.id,
+               p.product_name,
+               p.category_id,
+               c.category_name,
+               p.merchant_id,
+               m.merchant_name,
+               m.region,
+               p.price,
+               p.stock,
+               p.image,
+               p.description,
+               p.status,
+               p.create_time,
+               p.update_time
+        FROM product p
+                 JOIN category c ON p.category_id = c.id
+                 JOIN merchant m ON p.merchant_id = m.id
+        WHERE p.status = 1
+        <if test="categoryId != null">
+            AND p.category_id = #{categoryId}
+        </if>
+        <if test="region != null and region != ''">
+            AND m.region = #{region}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND p.product_name LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        ORDER BY p.create_time DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <!-- 统计符合条件的上架商品总数，用于分页 -->
+    <select id="countProducts" resultType="Integer">
+        SELECT COUNT(*)
+        FROM product p
+                 JOIN merchant m ON p.merchant_id = m.id
+        WHERE p.status = 1
+        <if test="categoryId != null">
+            AND p.category_id = #{categoryId}
+        </if>
+        <if test="region != null and region != ''">
+            AND m.region = #{region}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND p.product_name LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+    </select>
+
+    <!-- 根据 id 查询商品详情（含分类名、商家名、地区，仅上架商品） -->
+    <select id="selectProductById" parameterType="Long" resultType="ProductVO">
+        SELECT p.id,
+               p.product_name,
+               p.category_id,
+               c.category_name,
+               p.merchant_id,
+               m.merchant_name,
+               m.region,
+               p.price,
+               p.stock,
+               p.image,
+               p.description,
+               p.status,
+               p.create_time,
+               p.update_time
+        FROM product p
+                 JOIN category c ON p.category_id = c.id
+                 JOIN merchant m ON p.merchant_id = m.id
+        WHERE p.id = #{id}
+          AND p.status = 1
+    </select>
+
+    <!-- 根据 id 查询库存，用于加购/下单前校验 -->
+    <select id="selectStockById" parameterType="Long" resultType="Integer">
+        SELECT stock
+        FROM product
+        WHERE id = #{id}
+          AND status = 1
+    </select>
+
+    <!-- 扣减库存（下单时使用，stock 为扣减后的剩余库存） -->
+    <update id="updateStock">
+        UPDATE product
+        SET stock = #{stock}
+        WHERE id = #{id}
+          AND status = 1
+    </update>
+
+</mapper>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.cafuc.crossmall.mapper.OrderItemMapper">
+
+    <!-- TODO: 插入订单明细，表名 order_item -->
+    <insert id="insertOrderItem" parameterType="OrderItem" useGeneratedKeys="true" keyProperty="id">
+    </insert>
+
+    <!-- TODO: 根据 id 查询订单明细 -->
+    <select id="selectOrderItemById" parameterType="Long" resultType="OrderItem">
+    </select>
+
+    <!-- TODO: 更新订单明细 -->
+    <update id="updateOrderItem" parameterType="OrderItem">
+    </update>
+
+    <!-- TODO: 根据 id 删除订单明细 -->
+    <delete id="deleteOrderItemById" parameterType="Long">
+    </delete>
+
+    <!-- TODO: 查询某订单下的所有明细 -->
+    <select id="selectOrderItemByOrderId" parameterType="Long" resultType="OrderItem">
+    </select>
+
+</mapper>

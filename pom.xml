@@ -67,6 +67,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
+        <!-- Session 存 Redis -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+        </dependency>
         <!-- Spring Security 用户登录校验、角色权限管控（买家 / 商家 / 管理员）-->
         <dependency>
             <groupId>org.springframework.boot</groupId>

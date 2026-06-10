@@ -73,6 +73,9 @@
     - 管理员
         - 增加商品分类
         - 封禁用户
+    - Redis
+        - 登录
+        - 商品分类 和 地区分类
 ### ER图
 
 ```mermaid
@@ -274,8 +277,42 @@ erDiagram
     4. 下单页+订单列表、详情
     5. 个人中心（评价，售后）
 
+## Redis
+    以后自己怎么管 Redis
+    查看是否在跑（WSL 里）：
+    
+    wsl -d Ubuntu
+    redis-cli ping
+    重启后 Redis 没起来：
+    wsl -d Ubuntu -u root service redis-server start
 
+    仍想用 Docker（网络正常后再试）：
+    docker run -d --name redis -p 6379:6379 redis
+    若已有 WSL 里的 Redis 占着 6379，要先停 WSL 那个或改端口。
+    
+    验证项目是否用到 Redis
+    redis-cli keys "*"
+    启动后端
+    浏览器打开商品页（会调 /api/categories）
+    WSL 里执行：
+    redis-cli get mall:categories
+    登录一次后再查：
+    redis-cli keys "*session*"
 
+    fh@WIN-FT6GRADRU81:/mnt/c/Users/Administrator$ redis-cli keys "*"
+    1) "spring:session:sessions:d242d73d-184b-4d6c-a38d-3632d862cce3"
+    2) "mall:regions"
+    3) "mall:categories"
+
+## git
+    # 1. 把当前目录所有改动加入暂存区
+    git add .
+    
+    # 2. 提交到本地仓库（git m 应该是 git commit 简写）
+    git commit -m "提交说明"
+    
+    # 3. 推送到远程仓库
+    git push
 ## 《企业级应用系统开发能力训练》实训课结课要求：
     1. 没有上软通动力实训课的同学需要按照要求完成该课程结课报告；
     2. 以小组为单位完成报告，学生可自由组队，每队人数不超过5人；

@@ -19,7 +19,7 @@
 - Java 17，Spring Boot **4.0.6**
 - MyBatis 4.0.1 + MySQL 8
 - Spring Security（CSRF 关闭；开发期 `/api/**` 主要接口 permitAll，鉴权在 Controller Session）
-- Redis 依赖已在 `pom.xml`，**尚未使用**
+- **Redis 已接入**：Session 外置 + 分类/地区只读缓存（见下文「Redis」）
 - Lombok、Validation
 
 **前端（crossmall-vue）**
@@ -31,7 +31,11 @@
 ## 启动方式
 
 ```bash
-# 后端（默认 8080，需 MySQL 已建库并导入 sql.sql + data.sql）
+# Redis（WSL Ubuntu 内 apt 安装；默认 localhost:6379）
+# 已在 WSL 内：redis-cli ping  → PONG 即可
+# 未启动时：sudo service redis-server start
+
+# 后端（默认 8080，需 MySQL + Redis 已就绪，并导入 sql.sql + data.sql）
 ./mvnw spring-boot:run          # 或 IDE 运行 CrossMallApplication
 
 # 前端（默认 5173）
@@ -39,6 +43,8 @@ cd ../crossmall-vue
 npm install
 npm run dev
 ```
+
+**Redis 说明**：开发环境 Redis 装在 **WSL Ubuntu**（非 Docker 容器）。Spring Boot 在 Windows 连 `localhost:6379`；在 WSL 终端内直接用 `redis-cli ping`，勿在 WSL 里再跑 `wsl -d Ubuntu ...`。
 
 访问商城：`http://localhost:5173/products`  
 开发时 API 走 Vite 代理，**不要**直接改 axios baseURL 为 8080。
@@ -84,6 +90,9 @@ npm run dev
 | 9 | 店铺列表 / 详情 | ✅ 前后端已完成 |
 | 10 | 售后 | ✅ 前后端已完成 |
 | 11 | 管理员后台 | ✅ 已完成（分类 CRUD + 用户封禁/解封） |
+| 12 | Redis（Session + 分类/地区缓存） | ✅ 已完成 |
+
+**MVP 结论**：`request.md` 规划的核心业务流程（买家/卖家/管理员）**已全部打通**，可作为课程答辩/demo 的完整版本。下文「未实现」为可选增强，不影响 MVP 交付。
 
 ## 当前实现进度
 
@@ -93,7 +102,13 @@ npm run dev
 
 - `POST /api/userLogin`、`POST /api/userRegister`
 - `UserMapper`、`MerchantMapper`、`UserService`、`MerchantService`
-- Session 登录（`session.setAttribute("user", login)`）
+- Session 登录（`session.setAttribute("user", login)`）；**Session 存 Redis**（`@EnableRedisHttpSession` + `User implements Serializable`）
+
+**后端 — Redis 缓存**
+
+- `CategoryServiceImpl`：key `mall:categories`，TTL 10 分钟；管理员增删改分类后 `evictCategoryCache()`
+- `MerchantServiceImpl`：key `mall:regions`，TTL 10 分钟；卖家注册 `insertMerchant` 成功后删缓存
+- JSON 序列化：`StringRedisTemplate` + `ObjectMapper`；`TypeReference` 用 **`tools.jackson.core.type.TypeReference`**（勿误用 MyBatis 的）
 
 **后端 — 商品展示**
 
@@ -191,15 +206,15 @@ npm run dev
 - `api/admin.js`、`utils/adminMeta.js`
 - `App.vue` 导航：首页 / 商城 / 店铺 / 购物车(登录) / 我的订单 / 我的售后(登录) / 店铺订单+店铺售后+商品管理(卖家) / 分类管理+用户管理(管理员)
 
-### 未实现
+### 未实现（可选增强，非 MVP 阻塞项）
 
 - 全局异常处理（见下文说明，**未做**）
-- Redis 实际接入（见下文说明，**未做**）
 - JWT（可选替代 Session，未做）
 - Session 接入 Spring Security（见下文「已知缺口」）
 - 商品图片上传（仍用 picsum 占位）
 - 首页仍为脚手架
 - 一单多商家时卖家列表金额仍显示整单 `totalAmount`（详情已按本店明细重算）
+- Redis 扩展：商品列表热点缓存、购物车缓存、库存防超卖、登录限流（**未做**）
 
 ## 管理员模块（已实现）
 
@@ -244,30 +259,58 @@ Service 改为 `throw new BusinessException("订单不存在")`，Controller 可
 
 **与当前项目衔接**：继续用 `Result`、`massage` 字段；登录接口 `ApiloginController` 可暂不纳入，或逐步统一。
 
-## Redis（未实现 · 说明）
+## Redis（已实现）
 
-`pom.xml` 已引入 `spring-boot-starter-data-redis`，`application.yml` **未配置**连接，代码**零使用**。
+**依赖**：`spring-boot-starter-data-redis`、`spring-session-data-redis`
 
-**在本项目中可考虑的用途**（按优先级）：
+**配置**（`application.yml`）：
+
+```yaml
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  session:
+    store-type: redis
+    timeout: 30m
+```
+
+**启动类**：`CrossMallApplication` 加 `@EnableRedisHttpSession`（仅 `store-type: redis` 不足以写入 Session，需此注解）。
+
+**已实现**
+
+| 用途 | 实现位置 | Redis key / 说明 |
+|------|----------|------------------|
+| **Session 外置** | Spring Session + `User implements Serializable` | `spring:session:sessions:*`；登录后可见 |
+| **分类列表缓存** | `CategoryServiceImpl.selectAllCategories` | `mall:categories`；管理员改分类时删除 |
+| **地区列表缓存** | `MerchantServiceImpl.selectAllRegions` | `mall:regions`；卖家注册成功后删除 |
+
+**验证**
+
+```bash
+redis-cli ping                              # PONG
+redis-cli get mall:categories               # 访问商品页后应有 JSON
+redis-cli keys "spring:session:*"           # 登录后应有 session key
+```
+
+**本地 Redis**：WSL Ubuntu 内 `apt install redis-server`，服务名 `redis-server`，默认 `6379`。重启电脑后若连不上，WSL 内执行 `sudo service redis-server start`。
+
+**未做（扩展）**
 
 | 用途 | 说明 |
 |------|------|
-| **Session 外置** | 多实例部署时 HttpSession 存 Redis；单体内嵌 Tomcat 开发期非必须 |
-| **购物车缓存** | 高频读购物车；需与 MySQL 一致性策略（目前直接写库，更简单） |
-| **商品热点缓存** | 首页/列表 `GET /products` 缓存分页结果，分类变更时失效 |
-| **库存扣减防超卖** | 下单时对 `productId` 做 Redis 原子减；需与 DB 事务对齐，MVP 用 DB 扣库存即可 |
-| **验证码 / 限流** | 登录、注册防刷 |
-
-**若接入**：`application.yml` 增加 `spring.data.redis.host/port`；本地需起 Redis；先从一个只读场景（如分类列表缓存）试点即可。
-
-**答辩表述**：技术栈规划含 Redis；MVP 以 MySQL + Session 为主，Redis 作为性能与扩展方案写入报告「后续优化」。
+| 商品热点缓存 | `GET /products` 分页结果缓存 |
+| 购物车缓存 | 需与 MySQL 双写/一致性策略 |
+| 库存防超卖 | Redis 原子减 + DB 事务对齐 |
+| 验证码 / 限流 | 登录、注册防刷 |
 
 ## 目录速查
 
 ### 后端 `src/main/java/edu/cafuc/crossmall/`
 
 ```
-CrossMallApplication.java
+CrossMallApplication.java     # @EnableRedisHttpSession
 config/
   SecurityConfig.java
   CorsConfig.java
@@ -529,6 +572,9 @@ const res = await request.get('/order')
 | 售后申请失败 | 是否已有进行中(0/1)；待支付应删单；已退款不可再退 |
 | 换货完成失败 | 卖家是否填 `company`；订单是否已发过货 |
 | CORS | 走 5173 代理，勿直连 8080 |
+| 后端启动报 Redis 连接失败 | WSL 内 `redis-cli ping`；失败则 `sudo service redis-server start` |
+| Session 不进 Redis | 确认 `@EnableRedisHttpSession`；登录后查 `redis-cli keys "*"` |
+| `readValue` / `TypeReference` 编译错 | import 用 `tools.jackson.core.type.TypeReference`，勿用 `org.apache.ibatis.type.TypeReference` |
 
 ## 编码约定
 
@@ -547,4 +593,4 @@ const res = await request.get('/order')
 - MVP 某模块完成（如评价、店铺、卖家商品）
 - 端口、代理、数据库、Security 放行路径变更
 - 确认或修复「已知缺口」
-- 管理员模块、全局异常、Redis 接入规划或落地
+- 管理员模块、全局异常、Redis 扩展（商品缓存等）落地或变更

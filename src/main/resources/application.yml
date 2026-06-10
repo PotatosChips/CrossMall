@@ -8,7 +8,15 @@ spring:
      username: root
      password: 123456
      driver-class-name: com.mysql.cj.jdbc.Driver
-
+  #redis
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      # password: xxx    # 有密码才写
+  session:
+    store-type: redis
+    timeout: 30m
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   configuration:

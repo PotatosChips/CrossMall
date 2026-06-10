@@ -31,3 +31,9 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Accidental dependency extraction ###
+/META-INF/
+/org/
+/log4j2.springboot
+*.class

@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,13 +33,36 @@ public class ApiloginController {
         if (login == null) {
             return unauthorized("用户名与密码不匹配");
         }
+        if (login.getStatus() != null && login.getStatus() == 0) {
+            return unauthorized("账号已被禁用");
+        }
         // 关键：登录成功写入 Session
         session.setAttribute("user", login);
         //给前端信息
         Map<String, Object> m = singleSuccess();
         m.put("username", login.getUsername());
+        m.put("nickname", login.getNickname());
         m.put("role", login.getRole());
         return ResponseEntity.ok(m);
+    }
+
+    @GetMapping("/userInfo")
+    public ResponseEntity<Map<String, Object>> userInfo(HttpSession session) {
+        User user = (User) session.getAttribute("user");
+        if (user == null) {
+            return unauthorized("请先登录");
+        }
+        Map<String, Object> m = singleSuccess();
+        m.put("username", user.getUsername());
+        m.put("nickname", user.getNickname());
+        m.put("role", user.getRole());
+        return ResponseEntity.ok(m);
+    }
+
+    @PostMapping("/userLogout")
+    public ResponseEntity<Map<String, Object>> userLogout(HttpSession session) {
+        session.invalidate();
+        return ResponseEntity.ok(singleSuccess());
     }
     @PostMapping("/userRegister")
     public ResponseEntity<Map<String, Object>> userRegister(User user,Merchant merchant) {

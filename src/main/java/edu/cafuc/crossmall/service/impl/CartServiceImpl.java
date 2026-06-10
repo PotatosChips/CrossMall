@@ -15,24 +15,37 @@ public class CartServiceImpl implements CartService {
     private CartMapper cartMapper;
 
     @Override
-    public Integer insertCart(Cart cart) {
-        return cartMapper.insertCart(cart);
+    public Cart addCart(Long userId, Long productId, Integer quantity) {
+        Cart existing = cartMapper.selectByUserIdAndProductId(userId, productId);
+        if (existing != null) {
+            int newQuantity = existing.getQuantity() + quantity;
+            cartMapper.updateCartById(existing.getId(), userId, newQuantity);
+            existing.setQuantity(newQuantity);
+            return existing;
+        }
+        Cart cart = new Cart();
+        cart.setUserId(userId);
+        cart.setProductId(productId);
+        cart.setQuantity(quantity);
+        cartMapper.insertCart(cart);
+        return cart;
     }
 
     @Override
-    public Cart selectCartById(Long id) {
-        return cartMapper.selectCartById(id);
+    public Integer updateCartById(Long id, Long userId, Integer quantity) {
+        return cartMapper.updateCartById(id, userId, quantity);
     }
 
     @Override
-    public Integer updateCart(Cart cart) {
-        return cartMapper.updateCart(cart);
+    public Integer deleteCartById(Long id, Long userId) {
+        return cartMapper.deleteCartById(id, userId);
     }
 
     @Override
-    public Integer deleteCartById(Long id) {
-        return cartMapper.deleteCartById(id);
-    }
+    /** 根据 userId 删除购物车项 */
+    public Integer deleteCartByUserId(Long userId){
+        return cartMapper.deleteCartByUserId(userId);
+    };
 
     @Override
     public List<Cart> selectCartByUserId(Long userId) {

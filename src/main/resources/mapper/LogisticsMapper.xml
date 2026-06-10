@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.cafuc.crossmall.mapper.LogisticsMapper">
+
+    <select id="selectByOrderId" parameterType="Long" resultType="Logistics">
+        select * from logistics
+        where order_id = #{orderId}
+    </select>
+
+    <insert id="insertLogistics" parameterType="Logistics" useGeneratedKeys="true" keyProperty="id">
+        insert into logistics (order_id, company, tracking_no, status, estimated_arrival)
+        values (#{orderId}, #{company}, #{trackingNo}, #{status}, #{estimatedArrival})
+    </insert>
+
+    <update id="updateLogistics" parameterType="Logistics">
+        update logistics
+        set company = #{company},
+            estimated_arrival = #{estimatedArrival},
+            status = #{status}
+        where id = #{id}
+    </update>
+
+    <update id="updateLogisticsReship" parameterType="Logistics">
+        update logistics
+        set company = #{company},
+            tracking_no = #{trackingNo},
+            status = 1
+        where id = #{id}
+    </update>
+
+    <select id="selectMaxTrackingNoByPrefix" resultType="String">
+        select max(tracking_no)
+        from logistics
+        where tracking_no like concat(#{prefix}, '%')
+    </select>
+
+</mapper>

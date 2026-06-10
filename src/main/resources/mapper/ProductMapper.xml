@@ -27,13 +27,35 @@
         <if test="categoryId != null">
             AND p.category_id = #{categoryId}
         </if>
+        <if test="merchantId != null">
+            AND p.merchant_id = #{merchantId}
+        </if>
         <if test="region != null and region != ''">
             AND m.region = #{region}
         </if>
         <if test="keyword != null and keyword != ''">
             AND p.product_name LIKE CONCAT('%', #{keyword}, '%')
         </if>
-        ORDER BY p.create_time DESC
+        <choose>
+            <when test="sort == 'time_asc'">
+                ORDER BY p.create_time ASC
+            </when>
+            <when test="sort == 'name_asc'">
+                ORDER BY p.product_name ASC
+            </when>
+            <when test="sort == 'name_desc'">
+                ORDER BY p.product_name DESC
+            </when>
+            <when test="sort == 'price_asc'">
+                ORDER BY p.price ASC
+            </when>
+            <when test="sort == 'price_desc'">
+                ORDER BY p.price DESC
+            </when>
+            <otherwise>
+                ORDER BY p.create_time DESC
+            </otherwise>
+        </choose>
         LIMIT #{offset}, #{pageSize}
     </select>
 
@@ -45,6 +67,9 @@
         WHERE p.status = 1
         <if test="categoryId != null">
             AND p.category_id = #{categoryId}
+        </if>
+        <if test="merchantId != null">
+            AND p.merchant_id = #{merchantId}
         </if>
         <if test="region != null and region != ''">
             AND m.region = #{region}
@@ -78,19 +103,105 @@
     </select>
 
     <!-- 根据 id 查询库存，用于加购/下单前校验 -->
-    <select id="selectStockById" parameterType="Long" resultType="Integer">
+    <select id="selectStockById" resultType="Integer">
         SELECT stock
         FROM product
         WHERE id = #{id}
           AND status = 1
     </select>
 
-    <!-- 扣减库存（下单时使用，stock 为扣减后的剩余库存） -->
+    <!-- 更新库存（下单，删除订单，添货，stock 为扣减后的剩余库存） -->
     <update id="updateStock">
         UPDATE product
         SET stock = #{stock}
         WHERE id = #{id}
           AND status = 1
     </update>
+
+    <!-- 添加货物 卖家  -->
+    <insert id="insertProduct">
+        INSERT INTO product
+            (product_name, category_id, merchant_id, price, stock, image, description, status)
+        VALUES (#{productName}, #{categoryId}, #{merchantId}, #{price}, #{stock}, #{image}, #{description}, #{status})
+    </insert>
+
+    <!-- 卖家：分页查询本店商品（含下架） -->
+    <select id="selectProductListByMerchantId" resultType="ProductVO">
+        SELECT p.id,
+               p.product_name,
+               p.category_id,
+               c.category_name,
+               p.merchant_id,
+               m.merchant_name,
+               m.region,
+               p.price,
+               p.stock,
+               p.image,
+               p.description,
+               p.status,
+               p.create_time,
+               p.update_time
+        FROM product p
+                 JOIN category c ON p.category_id = c.id
+                 JOIN merchant m ON p.merchant_id = m.id
+        WHERE p.merchant_id = #{merchantId}
+        <if test="keyword != null and keyword != ''">
+            AND p.product_name LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        ORDER BY p.create_time DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <!-- 卖家：统计本店商品总数 -->
+    <select id="countProductsByMerchantId" resultType="Integer">
+        SELECT COUNT(*)
+        FROM product p
+        WHERE p.merchant_id = #{merchantId}
+        <if test="keyword != null and keyword != ''">
+            AND p.product_name LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+    </select>
+
+    <!-- 卖家：查询本店商品详情 -->
+    <select id="selectProductByIdForSeller" resultType="ProductVO">
+        SELECT p.id,
+               p.product_name,
+               p.category_id,
+               c.category_name,
+               p.merchant_id,
+               m.merchant_name,
+               m.region,
+               p.price,
+               p.stock,
+               p.image,
+               p.description,
+               p.status,
+               p.create_time,
+               p.update_time
+        FROM product p
+                 JOIN category c ON p.category_id = c.id
+                 JOIN merchant m ON p.merchant_id = m.id
+        WHERE p.id = #{id}
+          AND p.merchant_id = #{merchantId}
+    </select>
+
+    <!-- 卖家：更新本店商品 -->
+    <update id="updateProductForSeller">
+        UPDATE product
+        SET product_name = #{productName},
+            category_id = #{categoryId},
+            price = #{price},
+            stock = #{stock},
+            description = #{description},
+            status = #{status}
+        WHERE id = #{id}
+          AND merchant_id = #{merchantId}
+    </update>
+
+    <select id="countByCategoryId" resultType="Integer">
+        SELECT COUNT(*)
+        FROM product
+        WHERE category_id = #{categoryId}
+    </select>
 
 </mapper>

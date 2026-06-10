@@ -3,9 +3,11 @@ package edu.cafuc.crossmall.service.impl;
 import edu.cafuc.crossmall.mapper.OrderItemMapper;
 import edu.cafuc.crossmall.pojo.OrderItem;
 import edu.cafuc.crossmall.service.OrderItemService;
+import org.apache.ibatis.annotations.Param;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -15,23 +17,19 @@ public class OrderItemServiceImpl implements OrderItemService {
     private OrderItemMapper orderItemMapper;
 
     @Override
-    public Integer insertOrderItem(OrderItem orderItem) {
-        return orderItemMapper.insertOrderItem(orderItem);
+    public Integer insertOrderItem(Long orderId, Long productId, String productName, BigDecimal price, Integer quantity) {
+        return orderItemMapper.insertOrderItem(orderId, productId, productName, price, quantity);
     }
 
     @Override
-    public OrderItem selectOrderItemById(Long id) {
-        return orderItemMapper.selectOrderItemById(id);
+    public Integer deleteOrderItemById(Long orderId) {
+        return orderItemMapper.deleteOrderItemById(orderId);
     }
 
     @Override
-    public Integer updateOrderItem(OrderItem orderItem) {
-        return orderItemMapper.updateOrderItem(orderItem);
-    }
-
-    @Override
-    public Integer deleteOrderItemById(Long id) {
-        return orderItemMapper.deleteOrderItemById(id);
+    //查询某订单下的所有明细 卖家 和卖家
+    public List<OrderItem> selectOrderItemForSeller(Long orderId,Long userId){
+        return orderItemMapper.selectOrderItemForSeller(orderId,userId);
     }
 
     @Override

@@ -4,24 +4,116 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="edu.cafuc.crossmall.mapper.OrderMapper">
 
-    <!-- TODO: 创建订单，表名 `order`（MySQL 保留字，需反引号） -->
+    <!--  创建订单 -->
     <insert id="insertOrder" parameterType="Order" useGeneratedKeys="true" keyProperty="id">
+        insert into `order` (order_no, user_id, total_amount, pay_type, status, address, receiver_name, receiver_phone)
+            values (#{orderNo}, #{userId}, #{totalAmount}, #{payType}, #{status}, #{address}, #{receiverName}, #{receiverPhone})
     </insert>
 
-    <!-- TODO: 根据 id 查询订单 -->
-    <select id="selectOrderById" parameterType="Long" resultType="Order">
+    <!-- 查询当天最大订单号，用于生成序号 -->
+    <select id="selectMaxOrderNoByPrefix" resultType="String">
+        SELECT MAX(order_no)
+        FROM `order`
+        WHERE order_no LIKE CONCAT(#{prefix}, '%')
     </select>
 
-    <!-- TODO: 更新订单（如改状态、支付方式等） -->
-    <update id="updateOrder" parameterType="Order">
+
+    <!-- 更新订单（收货信息） -->
+    <update id="updateReceiverInfo" >
+        update `order`
+            set
+                pay_type = #{payType},
+                address = #{address},
+                receiver_name = #{receiverName},
+                receiver_phone = #{receiverPhone}
+            where order_no = #{orderNo}
+                and user_id = #{userId}
+                AND status = 0
     </update>
 
-    <!-- TODO: 根据 id 删除订单 -->
-    <delete id="deleteOrderById" parameterType="Long">
+    <!-- 更新订单状态-->
+    <update id="updateOrderStatus" >
+        update `order`
+            set
+                status = #{status}
+            where order_no = #{orderNo}
+              and user_id = #{userId}
+              and status = #{expectedStatus}
+    </update>
+    <!--  根据订单号删除待支付订单（仅本人） -->
+    <delete id="deleteOrderByOrderNo">
+        delete from `order`
+               where order_no = #{orderNo}
+                 and user_id = #{userId}
+                 and status = 0
     </delete>
-
-    <!-- TODO: 查询某用户的订单列表 -->
-    <select id="selectOrderByUserId" parameterType="Long" resultType="Order">
+<!--查询-->
+    <!-- 根据订单号查询订单（仅本人） -->
+    <select id="selectOrderByOrderNo" resultType="Order">
+        select * from `order`
+        where order_no = #{orderNo}
+          and user_id =#{userId}
     </select>
+
+    <!--  查询某用户的订单列表 -->
+    <select id="selectOrderByUserId" parameterType="Long" resultType="Order">
+        select o.*, lg.status as logistics_status
+        from `order` o
+                 left join logistics lg on lg.order_id = o.id
+        where o.user_id = #{userId}
+        order by o.create_time desc
+    </select>
+
+    <!-- 根据订单号查询订单列表（仅商户） -->
+    <select id="selectOrderListForSeller" resultType="Order">
+        select distinct o.*, lg.status as logistics_status
+        from `order` o
+                 inner join order_item oi on oi.order_id = o.id
+                 inner join product p on p.id = oi.product_id
+                 inner join merchant m on m.id = p.merchant_id
+                 left join logistics lg on lg.order_id = o.id -- 物流status
+        where m.user_id = #{userId}
+        ORDER BY o.create_time DESC
+    </select>
+
+    <!--根据订单号查询订单（仅商户）-->
+    <select id="selectOrderForSeller" resultType="Order">
+        select distinct o.*       -- 查出订单的所有信息（去重，避免重复）
+        from `order` o            -- 从订单主表查
+                 inner join order_item oi  -- 关联订单明细表（知道买了啥）
+                            on oi.order_id = o.id    -- 订单ID = 明细的订单ID
+                 inner join product p      -- 关联商品表
+                            on p.id = oi.product_id  -- 商品ID = 明细里的商品ID
+                 inner join merchant m     -- 关联商家表
+                            on m.id = p.merchant_id  -- 商家ID = 商品所属商家
+        where
+            o.order_no = #{orderNo}     -- 按订单号查
+          and m.user_id = #{userId}  -- 关键：只查属于【当前商家】的订单
+        limit 1
+    </select>
+
+    <!--  根据订单ID查询订单 售后用  -->
+    <select id="selectOrderForSellerByOrderId" resultType="Order">
+        select distinct o.*
+        from `order` o
+                 inner join order_item oi on oi.order_id = o.id
+                 inner join product p on p.id = oi.product_id
+                 inner join merchant m on m.id = p.merchant_id
+        where o.id = #{orderId}
+          and m.user_id = #{userId}
+        limit 1
+    </select>
+
+    <!--  根据订单号查询（不受id限制）-->
+    <select id="selectOrderByOrderNoOnly" resultType="Order">
+        select * from `order` where order_no = #{orderNo}
+    </select>
+
+    <update id="updateOrderStatusByOrderNo">
+        update `order`
+        set status = #{status}
+        where order_no = #{orderNo}
+          and status = #{expectedStatus}
+    </update>
 
 </mapper>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.cafuc.crossmall.mapper.PaymentMapper">
+
+    <insert id="insertPayment" parameterType="Payment" useGeneratedKeys="true" keyProperty="id">
+        insert into payment (order_id, pay_no, pay_type, amount, status, pay_time)
+        values (#{orderId}, #{payNo}, #{payType}, #{amount}, #{status}, #{payTime})
+    </insert>
+
+    <select id="selectByOrderId" parameterType="Long" resultType="Payment">
+        select * from payment
+        where order_id = #{orderId}
+    </select>
+
+    <update id="updatePaymentSuccess" parameterType="Payment">
+        update payment
+        set pay_no = #{payNo},
+            pay_type = #{payType},
+            amount = #{amount},
+            status = #{status},
+            pay_time = #{payTime}
+        where order_id = #{orderId}
+          and status = 0
+    </update>
+
+    <select id="selectMaxPayNoByPrefix" resultType="String">
+        select max(pay_no)
+        from payment
+        where pay_no like concat(#{prefix}, '%')
+    </select>
+
+    <update id="updatePaymentRefund">
+        update payment
+        set status = 2
+        where order_id = #{orderId}
+          and status = 1
+    </update>
+
+</mapper>

@@ -14,4 +14,13 @@ public interface CategoryService {
 
     /** 根据分类名称查询分类 id */
     Long selectCategoryIdByName(String categoryName);
+
+    /** 统计分类个数 */
+    Integer countCategories();
+
+    Integer addCategory(String categoryName, Integer sort);
+
+    Integer updateCategory(Long id, String categoryName, Integer sort);
+
+    Integer deleteCategory(Long id);
 }

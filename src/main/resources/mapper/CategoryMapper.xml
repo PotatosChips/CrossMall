@@ -25,4 +25,41 @@
         WHERE category_name = #{categoryName}
     </select>
 
+    <!-- 统计分类个数 -->
+    <select id="countCategories" resultType="Integer">
+        SELECT COUNT(*)
+        FROM category
+    </select>
+
+    <select id="selectById" resultType="Category">
+        SELECT id, category_name, sort, create_time
+        FROM category
+        WHERE id = #{id}
+    </select>
+
+    <select id="countByCategoryName" resultType="Integer">
+        SELECT COUNT(*)
+        FROM category
+        WHERE category_name = #{categoryName}
+        <if test="excludeId != null">
+            AND id != #{excludeId}
+        </if>
+    </select>
+
+    <insert id="insertCategory" parameterType="Category" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO category (category_name, sort)
+        VALUES (#{categoryName}, #{sort})
+    </insert>
+
+    <update id="updateCategory" parameterType="Category">
+        UPDATE category
+        SET category_name = #{categoryName},
+            sort          = #{sort}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM category WHERE id = #{id}
+    </delete>
+
 </mapper>

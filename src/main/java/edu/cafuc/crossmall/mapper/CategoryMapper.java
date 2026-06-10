@@ -2,6 +2,7 @@ package edu.cafuc.crossmall.mapper;
 
 import edu.cafuc.crossmall.pojo.Category;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -16,4 +17,18 @@ public interface CategoryMapper {
 
     /** 根据分类名称查询分类 id */
     Long selectCategoryIdByName(String categoryName);
+
+    /** 统计分类个数 */
+    Integer countCategories();
+
+    Category selectById(Long id);
+
+    Integer countByCategoryName(@Param("categoryName") String categoryName,
+                                @Param("excludeId") Long excludeId);
+
+    Integer insertCategory(Category category);
+
+    Integer updateCategory(Category category);
+
+    Integer deleteById(Long id);
 }

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.cafuc.crossmall.mapper.LogisticsTrackMapper">
+
+    <select id="selectByLogisticsId" parameterType="Long" resultType="LogisticsTrack">
+        select * from logistics_track
+        where logistics_id = #{logisticsId}
+        order by track_time asc
+    </select>
+
+    <insert id="insertTrack" parameterType="LogisticsTrack" useGeneratedKeys="true" keyProperty="id">
+        insert into logistics_track (logistics_id, content, track_time)
+        values (#{logisticsId}, #{content}, #{trackTime})
+    </insert>
+
+</mapper>

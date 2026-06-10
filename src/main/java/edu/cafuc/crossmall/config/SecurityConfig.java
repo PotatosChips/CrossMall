@@ -14,7 +14,31 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/userLogin", "/api/userRegister").permitAll() //登录注册
+                        .requestMatchers("/api/userLogin",
+                                        "/api/userRegister",
+                                        "/api/userInfo",
+                                        "/api/userLogout",
+                                        "/api/categories",
+                                        "/api/categories/**",
+                                        "/api/regions",
+                                        "/api/regions/**",
+                                        "/api/shops",
+                                        "/api/shops/**",
+                                        "/api/products",
+                                        "/api/products/**",
+                                        "/api/cart",
+                                        "/api/cart/**",
+                                        "/api/order/**",
+                                        "/api/seller",
+                                        "/api/seller/**",
+                                        "/api/reviews",
+                                        "/api/reviews/**",
+                                        "/api/after-sales",
+                                        "/api/after-sales/**",
+                                        "/api/admin",
+                                        "/api/admin/**",
+                                        "/error"
+                                        ).permitAll()
                         .anyRequest().authenticated()
                 );
         return http.build();

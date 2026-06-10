@@ -15,4 +15,20 @@
             (username,password,nickname,phone,role,status)
             values (#{username},#{password},#{nickname},#{phone},#{role},#{status})
     </insert>
+
+    <select id="selectById" resultType="User">
+        select * from user where id = #{id}
+    </select>
+
+    <select id="selectAllForAdmin" resultType="AdminUserVO">
+        select id, username, nickname, role, status, create_time
+        from user
+        order by create_time desc
+    </select>
+
+    <update id="updateStatus">
+        update user
+        set status = #{status}
+        where id = #{id}
+    </update>
 </mapper>

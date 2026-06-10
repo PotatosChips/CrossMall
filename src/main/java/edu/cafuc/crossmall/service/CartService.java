@@ -6,18 +6,17 @@ import java.util.List;
 
 public interface CartService {
 
-    /** TODO: 加入购物车 */
-    Integer insertCart(Cart cart);
+    /** 加入购物车（有则累加数量，无则新增） */
+    Cart addCart(Long userId, Long productId, Integer quantity);
 
-    /** TODO: 根据 id 查询购物车项 */
-    Cart selectCartById(Long id);
+    /** 根据 id 更新数量 */
+    Integer updateCartById(Long id, Long userId, Integer quantity);
 
-    /** TODO: 更新购物车项（如改数量） */
-    Integer updateCart(Cart cart);
+    /** 根据 id 删除购物车项 */
+    Integer deleteCartById(Long id, Long userId);
 
-    /** TODO: 根据 id 删除购物车项 */
-    Integer deleteCartById(Long id);
-
-    /** TODO: 查询某用户的购物车列表 */
+    /** 根据 userId 删除购物车项 */
+    Integer deleteCartByUserId(Long userId);
+    /** 查询某用户的购物车列表 */
     List<Cart> selectCartByUserId(Long userId);
 }

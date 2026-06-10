@@ -1,5 +1,6 @@
 package edu.cafuc.crossmall.service.impl;
 
+import edu.cafuc.crossmall.exception.BusinessException;
 import edu.cafuc.crossmall.mapper.CategoryMapper;
 import edu.cafuc.crossmall.mapper.ProductMapper;
 import edu.cafuc.crossmall.pojo.Category;
@@ -74,11 +75,11 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public Integer addCategory(String categoryName, Integer sort) {
         if (categoryName == null || categoryName.isBlank()) {
-            throw new RuntimeException("分类名称不能为空");
+            throw new BusinessException("分类名称不能为空");
         }
         String name = categoryName.trim();
         if (categoryMapper.countByCategoryName(name, null) > 0) {
-            throw new RuntimeException("分类名称已存在");
+            throw new BusinessException("分类名称已存在");
         }
         Category category = new Category();
         category.setCategoryName(name);
@@ -93,17 +94,17 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public Integer updateCategory(Long id, String categoryName, Integer sort) {
         if (id == null) {
-            throw new RuntimeException("分类不存在");
+            throw new BusinessException("分类不存在");
         }
         if (categoryMapper.selectById(id) == null) {
-            throw new RuntimeException("分类不存在");
+            throw new BusinessException("分类不存在");
         }
         if (categoryName == null || categoryName.isBlank()) {
-            throw new RuntimeException("分类名称不能为空");
+            throw new BusinessException("分类名称不能为空");
         }
         String name = categoryName.trim();
         if (categoryMapper.countByCategoryName(name, id) > 0) {
-            throw new RuntimeException("分类名称已存在");
+            throw new BusinessException("分类名称已存在");
         }
         Category category = new Category();
         category.setId(id);
@@ -119,14 +120,14 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public Integer deleteCategory(Long id) {
         if (id == null) {
-            throw new RuntimeException("分类不存在");
+            throw new BusinessException("分类不存在");
         }
         if (categoryMapper.selectById(id) == null) {
-            throw new RuntimeException("分类不存在");
+            throw new BusinessException("分类不存在");
         }
         Integer productCount = productMapper.countByCategoryId(id);
         if (productCount != null && productCount > 0) {
-            throw new RuntimeException("该分类下仍有商品，无法删除");
+            throw new BusinessException("该分类下仍有商品，无法删除");
         }
         Integer rows = categoryMapper.deleteById(id);
         if (rows != null && rows > 0) {

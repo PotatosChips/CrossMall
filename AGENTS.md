@@ -18,7 +18,7 @@
 
 - Java 17，Spring Boot **4.0.6**
 - MyBatis 4.0.1 + MySQL 8
-- Spring Security（CSRF 关闭；开发期 `/api/**` 主要接口 permitAll，鉴权在 Controller Session）
+- Spring Security：**已接入**（`@EnableMethodSecurity` + `@PreAuthorize`；路径级 `authenticated()` / `hasRole`；401/403 返回 JSON）
 - **Redis 已接入**：Session 外置 + 分类/地区只读缓存（见下文「Redis」）
 - Lombok、Validation
 
@@ -91,6 +91,7 @@ npm run dev
 | 10 | 售后 | ✅ 前后端已完成 |
 | 11 | 管理员后台 | ✅ 已完成（分类 CRUD + 用户封禁/解封） |
 | 12 | Redis（Session + 分类/地区缓存） | ✅ 已完成 |
+| 13 | Spring Security 鉴权（Session → SecurityContext） | ✅ 已完成 |
 
 **MVP 结论**：`request.md` 规划的核心业务流程（买家/卖家/管理员）**已全部打通**，可作为课程答辩/demo 的完整版本。下文「未实现」为可选增强，不影响 MVP 交付。
 
@@ -102,7 +103,17 @@ npm run dev
 
 - `POST /api/userLogin`、`POST /api/userRegister`
 - `UserMapper`、`MerchantMapper`、`UserService`、`MerchantService`
-- Session 登录（`session.setAttribute("user", login)`）；**Session 存 Redis**（`@EnableRedisHttpSession` + `User implements Serializable`）
+- Session 登录：`session.setAttribute("user", login)` + **`SecurityAuthSupport.login(login)`** 写 `SecurityContext`
+- **Session 存 Redis**（`@EnableRedisHttpSession` + `User implements Serializable`）
+- 登出：`SecurityAuthSupport.logout()` + `session.invalidate()`
+
+**后端 — Spring Security 鉴权**
+
+- `SecurityAuthSupport`：`role 0→ROLE_BUYER`、`1→ROLE_SELLER`、`2→ROLE_ADMIN`；登录/登出写清 `SecurityContext`
+- `SecurityConfig`：`@EnableMethodSecurity`；公开路径 `permitAll`；`/admin/**`→ADMIN、`/seller/**`→SELLER、`/cart/**` `/order/**` `/after-sales/**`→`authenticated()`；401/403 JSON（`success`+`massage`）
+- Controller：**`@AuthenticationPrincipal User user`** 取当前用户；**勿再**手写 `session.getAttribute` / `sellerAuth` / `adminAuth`
+- 类级/方法级 `@PreAuthorize`：`isAuthenticated()`（买家侧）、`hasRole('SELLER')`、`hasRole('ADMIN')`
+- `ApiloginController.userInfo` 仍可读 Session（登录后 Session 与 SecurityContext 同步）；可后续改为 `@AuthenticationPrincipal`
 
 **后端 — Redis 缓存**
 
@@ -128,15 +139,14 @@ npm run dev
 
 **后端 — 卖家商品**
 
-- `SellerController`（`/api/seller`，`sellerAuth()` 校验 `role==1`）
+- `SellerController`（`/api/seller`，类上 `@PreAuthorize("hasRole('SELLER')")`）
 - `ProductService`：`insertProduct`、`selectMyProductList`、`countMyProducts`、`selectMyProductById`、`updateProduct`（含上下架 `status`）
 - 本店商品 SQL 带 `merchant_id` 鉴权；`insertProduct` XML 占位符用驼峰
 
 **后端 — 购物车**
 
 - `CartMapper/Service`：增删改查；加购时同商品累加数量（先查 `selectByUserIdAndProductId`）
-- `CartController`：`POST /api/cart`、`GET /api/cart`、`PUT /api/cart/{id}`、`DELETE /api/cart/{id}`
-- 鉴权：Controller 内 `session.getAttribute("user")`，`userId` 不从前端传
+- `CartController`：`POST/GET/PUT/DELETE /api/cart`；类上 `@PreAuthorize("isAuthenticated()")`
 
 **后端 — 订单（含下单 + order_item + 支付 + 物流）**
 
@@ -181,7 +191,7 @@ npm run dev
 
 **后端 — 管理员**
 
-- `AdminController`：`/api/admin`，`adminAuth()` 校验 `role==2`
+- `AdminController`：`/api/admin`，类/方法 `@PreAuthorize("hasRole('ADMIN')")`
 - 分类：`POST/PUT/DELETE /api/admin/categories`（删前查关联商品）
 - 用户：`GET /api/admin/users`、`PUT /api/admin/users/{id}/status`（0 封禁 / 1 解封）
 - 登录：`ApiloginController` 对 `user.status=0` 返回「账号已被禁用」
@@ -189,7 +199,7 @@ npm run dev
 **后端 — 配置**
 
 - `CorsConfig`：`/api/**` 允许 `5173`
-- `SecurityConfig` permitAll（开发期）：登录注册、`/api/categories/**`、`/api/regions/**`、`/api/shops/**`、`/api/products/**`、`/api/cart/**`、`/api/order/**`、`/api/seller/**`、`/api/reviews/**`、`/api/after-sales/**`、`/api/admin/**`
+- `SecurityConfig` + `SecurityAuthSupport`（见上文「Spring Security 鉴权」）
 
 **前端**
 
@@ -210,7 +220,6 @@ npm run dev
 
 - 全局异常处理（见下文说明，**未做**）
 - JWT（可选替代 Session，未做）
-- Session 接入 Spring Security（见下文「已知缺口」）
 - 商品图片上传（仍用 picsum 占位）
 - 首页仍为脚手架
 - 一单多商家时卖家列表金额仍显示整单 `totalAmount`（详情已按本店明细重算）
@@ -232,7 +241,7 @@ npm run dev
 - 地区字典、物流公司维护
 - 违规商品强制下架、售后仲裁、全站统计
 
-**后端**：`AdminController`（`adminAuth()` 校验 `role==2`）  
+**后端**：`AdminController`（`@PreAuthorize("hasRole('ADMIN')")`）  
 **前端**：`/admin/categories`、`/admin/users`；导航仅 `isAdmin` 显示
 
 ## 全局异常处理（未实现 · 说明）
@@ -312,7 +321,8 @@ redis-cli keys "spring:session:*"           # 登录后应有 session key
 ```
 CrossMallApplication.java     # @EnableRedisHttpSession
 config/
-  SecurityConfig.java
+  SecurityConfig.java           # @EnableMethodSecurity、路径鉴权、401/403 JSON
+  SecurityAuthSupport.java      # 登录写 SecurityContext、角色映射
   CorsConfig.java
 controller/
   ApiloginController.java     # 登录 + 注册
@@ -411,7 +421,7 @@ App.vue
 
 `sort` 白名单：`time_desc`（默认）、`time_asc`、`name_asc`、`name_desc`、`price_asc`、`price_desc`
 
-### 卖家商品 `/api/seller`（需 Session + `role=1`）
+### 卖家商品 `/api/seller`（需 `ROLE_SELLER`）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -430,7 +440,7 @@ App.vue
 | GET | `/api/reviews?productId=` | 商品评价列表（公开，含 `nickname`） |
 | GET | `/api/reviews?orderNo=` | 某订单已评记录（买家本人） |
 
-### 售后 `/api/after-sales`（需 Session）
+### 售后 `/api/after-sales`（需登录；卖家接口需 `ROLE_SELLER`）
 
 **路由顺序**：`GET /seller` 须在 `GET /{id}` 之前。
 
@@ -438,7 +448,7 @@ App.vue
 |------|------|------|
 | POST | `/api/after-sales` | 买家申请：`orderNo`、`type`、`reason` |
 | GET | `/api/after-sales` | 买家我的列表；`orderNo` 参数 → 某订单售后（须本人订单） |
-| GET | `/api/after-sales/seller` | 卖家本店相关售后列表；`role=1` |
+| GET | `/api/after-sales/seller` | 卖家本店相关售后列表；`hasRole('SELLER')` |
 | PUT | `/api/after-sales/{id}/handle` | 卖家处理：`status`(1受理/2完成/3拒绝)、`reply`；换货完成时 `company` 必填 |
 
 **after_sale.type**：`1` 退货退款 · `2` 换货 · `3` 投诉 · `4` 仅退款
@@ -447,7 +457,7 @@ App.vue
 
 **payment.status（售后相关）**：`2` = 已退款（模拟）
 
-### 管理员 `/api/admin`（需 Session + `role=2`）
+### 管理员 `/api/admin`（需 `ROLE_ADMIN`）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -463,7 +473,7 @@ App.vue
 
 **注册** `POST /api/userRegister` — `username`、`password`、`nickname`、`role`（0 买家 / 1 卖家）、卖家另填 `merchantName`、`region`（来自 `/api/regions`）、`description`
 
-### 购物车（需 Session）
+### 购物车（需登录 `authenticated()`）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -472,7 +482,7 @@ App.vue
 | PUT | `/api/cart/{id}` | 改数量 |
 | DELETE | `/api/cart/{id}` | 删除一项 |
 
-### 订单 `/api/order`（需 Session；`orderNo` 走路径）
+### 订单 `/api/order`（需登录；卖家子路径需 `ROLE_SELLER`；`orderNo` 走路径）
 
 **路由顺序注意**：`GET /seller`、`GET /{orderNo}/seller` 须在 `GET /{orderNo}` **之前**声明，避免 `seller` 被当成订单号。
 
@@ -480,7 +490,7 @@ App.vue
 |------|------|------|
 | POST | `/api/order` | 下单；参数 `payType`、`address`、`receiverName`、`receiverPhone` |
 | GET | `/api/order` | 买家订单列表（含 `logisticsStatus`） |
-| GET | `/api/order/seller` | **卖家**订单列表（含 `logisticsStatus`）；需 `role=1` |
+| GET | `/api/order/seller` | **卖家**订单列表（含 `logisticsStatus`）；`hasRole('SELLER')` |
 | GET | `/api/order/{orderNo}/seller` | **卖家**订单详情（`OrderVO`，items 仅本店商品，金额按快照价重算） |
 | GET | `/api/order/{orderNo}` | 买家订单详情（`OrderVO`） |
 | PUT | `/api/order/{orderNo}/receiver` | 改收货信息（仅 `status=0`） |
@@ -522,10 +532,36 @@ App.vue
 ## 登录与鉴权（重要）
 
 - 前端：`withCredentials: true`；Vite 代理 `/api` → `8080`
-- 登录成功写 HttpSession，**未**写入 Spring Security `SecurityContext`
-- 卖家接口：`OrderController.sellerAuth()` / `SellerController.sellerAuth()` 校验 `role==1`
+- 登录成功：**Session + SecurityContext 双写**（`ApiloginController` → `SecurityAuthSupport.login`）；Session 存 Redis
+- 业务接口取用户：`@AuthenticationPrincipal User user`（principal 即 `User` 对象）
+- 未登录访问受保护接口：**401** JSON `{ "success": false, "massage": "请先登录" }`
+- 已登录但角色不符：**403** JSON `{ "success": false, "massage": "无权限访问" }`
 
-**已知缺口**：可能出现「登录 200 但接口 401」。上线前应 Session → Security 打通，并改 `authenticated()`。
+### 角色映射
+
+| `user.role` | Spring 权限 | 典型注解 |
+|-------------|-------------|----------|
+| 0 买家 | `ROLE_BUYER` | `@PreAuthorize("isAuthenticated()")` |
+| 1 卖家 | `ROLE_SELLER` | `@PreAuthorize("hasRole('SELLER')")` |
+| 2 管理员 | `ROLE_ADMIN` | `@PreAuthorize("hasRole('ADMIN')")` |
+
+### SecurityConfig 路径规则（摘要）
+
+| 路径 | 规则 |
+|------|------|
+| 登录/注册、`/categories` `/regions` `/shops` `/products` `/reviews` | `permitAll` |
+| `/api/admin/**` | `hasRole('ADMIN')` |
+| `/api/seller/**` | `hasRole('SELLER')` |
+| `/api/cart/**` `/api/order/**` `/api/after-sales/**` | `authenticated()` |
+
+卖家/管理员子路径在 Controller 上另有 `@PreAuthorize`（如订单里买家接口 `isAuthenticated()`，卖家发货 `hasRole('SELLER')`）。
+
+### 新接口鉴权约定
+
+- 需登录：`@PreAuthorize("isAuthenticated()")` + `@AuthenticationPrincipal User user`
+- 卖家专用：`hasRole('SELLER')`；管理员：`hasRole('ADMIN')`
+- **`userId` 不从前端传**，一律 `user.getId()`
+- 公开只读接口保持 `permitAll`，不要加 `@PreAuthorize`
 
 ## 前端联调要点
 
@@ -559,8 +595,10 @@ const res = await request.get('/order')
 
 | 现象 | 优先检查 |
 |------|----------|
-| 商品/分类 401/403 | `SecurityConfig` 放行；重启后端 |
-| 登录成功但接口 401 | Session 未接入 Security |
+| 未登录访问购物车 401 | 正常；Security 拦截；前端读 `err.response?.data?.massage` |
+| 登录成功但 `@AuthenticationPrincipal` 为 null | 是否调用了 `SecurityAuthSupport.login`；是否重启后端 |
+| 卖家访问 `/api/seller` 403 | 是否用卖家账号；角色是否为 `ROLE_SELLER` |
+| 商品/分类 401/403 | 公开路径是否在 `SecurityConfig` permitAll |
 | 分类/地区下拉为空 | 前端是否用 `res.data.list` 而非 `res.data` |
 | 卖家商品插失败 | `ProductMapper.insertProduct` 占位符是否驼峰 |
 | 卖家看到全站商品 | 是否误用公开 `selectProductList` 而非本店 SQL |
@@ -582,6 +620,8 @@ const res = await request.get('/order')
 - API 前缀：`/api`
 - MyBatis：`mapper/*.xml`，`map-underscore-to-camel-case: true`（`logistics_status` → `logisticsStatus`）
 - 新接口优先用 `Result`；错误信息 key 用 `massage`
+- 需登录接口用 `@AuthenticationPrincipal User user`，禁止从前端传 `userId`
+- `@PreAuthorize` 需配合 `@EnableMethodSecurity`（已在 `SecurityConfig`）
 - Mapper 方法按**业务场景**命名，避免无意义全套 CRUD 模板
 - 动态排序用 XML `<choose>` 白名单，禁止 `${sort}` 拼接 SQL
 - 卖家订单/商品：更新与查询 SQL 带 `merchant_id` 或 JOIN 鉴权
@@ -592,5 +632,5 @@ const res = await request.get('/order')
 - 新增/完成 Controller、前端页面、鉴权变更
 - MVP 某模块完成（如评价、店铺、卖家商品）
 - 端口、代理、数据库、Security 放行路径变更
-- 确认或修复「已知缺口」
+- 确认或修复鉴权、Security 放行路径变更
 - 管理员模块、全局异常、Redis 扩展（商品缓存等）落地或变更

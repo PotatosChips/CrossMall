@@ -73,9 +73,74 @@
     - 管理员
         - 增加商品分类
         - 封禁用户
+### 优化
     - Redis
         - 登录
         - 商品分类 和 地区分类
+    - Spring Sercurty
+        - @PreAuthorize 管权限
+        - user 用 @AuthenticationPrincipal User user
+```java
+    public Result updateUserStatus(@PathVariable Long id, Integer status, HttpSession session) {
+        Result auth = adminAuth(session);
+        if (auth != null) {
+            return auth;
+        }
+        User operator = (User) session.getAttribute("user");
+        try {
+            Integer rows = userService.updateUserStatus(id, status, operator.getId());
+            return rows > 0 ? Result.ok() : Result.fail("更新失败");
+        } catch (RuntimeException e) {
+            return Result.fail(e.getMessage());
+        }
+    }
+
+    private Result adminAuth(HttpSession session) {
+        User user = (User) session.getAttribute("user");
+        if (user == null) {
+            return Result.fail("请先登录");
+        }
+        if (user.getRole() == null || user.getRole() != 2) {
+            return Result.fail("仅管理员可操作");
+        }
+        return null;
+    }
+    //改动后
+    @PutMapping("/users/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result updateUserStatus(@PathVariable Long id, Integer status, @AuthenticationPrincipal User operator) {
+        User operator = (User) session.getAttribute("user");
+        try {
+            Integer rows = userService.updateUserStatus(id, status, operator.getId());
+            return rows > 0 ? Result.ok() : Result.fail("更新失败");
+        } catch (RuntimeException e) {
+            return Result.fail(e.getMessage());
+        }
+    }
+```
+    - 全局异常处理 @RestControllerAdvice
+```java
+        @PutMapping("/users/{id}/status")
+        @PreAuthorize("hasRole('ADMIN')")
+        public Result updateUserStatus(@PathVariable Long id, Integer status, @AuthenticationPrincipal User operator) {
+            User operator = (User) session.getAttribute("user");
+            try {
+                Integer rows = userService.updateUserStatus(id, status, operator.getId());
+                return rows > 0 ? Result.ok() : Result.fail("更新失败");
+            } catch (RuntimeException e) {
+                return Result.fail(e.getMessage());
+            }
+        }
+        //改动后
+        @PutMapping("/users/{id}/status")
+        @PreAuthorize("hasRole('ADMIN')")
+        public Result updateUserStatus(@PathVariable Long id, Integer status, @AuthenticationPrincipal User operator) {
+            Integer rows = userService.updateUserStatus(id, status, operator.getId());
+            return rows > 0 ? Result.ok() : Result.fail("更新失败");
+        }
+```
+    - 首页美化（仍是脚手架）
+    - 密码加密（仍是明文比对）
 ### ER图
 
 ```mermaid

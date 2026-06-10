@@ -1,5 +1,6 @@
 package edu.cafuc.crossmall.service.impl;
 
+import edu.cafuc.crossmall.exception.BusinessException;
 import edu.cafuc.crossmall.mapper.UserMapper;
 import edu.cafuc.crossmall.pojo.User;
 import edu.cafuc.crossmall.pojo.vo.AdminUserVO;
@@ -40,21 +41,21 @@ public class UserServiceImpl implements UserService {
     @Override
     public Integer updateUserStatus(Long targetUserId, Integer status, Long operatorUserId) {
         if (targetUserId == null || status == null) {
-            throw new RuntimeException("参数无效");
+            throw new BusinessException("参数无效");
         }
         if (status != 0 && status != 1) {
-            throw new RuntimeException("状态无效");
+            throw new BusinessException("状态无效");
         }
         if (operatorUserId != null && operatorUserId.equals(targetUserId)) {
-            throw new RuntimeException("不能操作自己的账号");
+            throw new BusinessException("不能操作自己的账号");
         }
 
         User target = userMapper.selectById(targetUserId);
         if (target == null) {
-            throw new RuntimeException("用户不存在");
+            throw new BusinessException("用户不存在");
         }
         if (target.getRole() != null && target.getRole() == ROLE_ADMIN) {
-            throw new RuntimeException("不能封禁管理员账号");
+            throw new BusinessException("不能封禁管理员账号");
         }
 
         return userMapper.updateStatus(targetUserId, status);

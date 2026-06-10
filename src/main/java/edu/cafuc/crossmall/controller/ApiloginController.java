@@ -1,5 +1,6 @@
 package edu.cafuc.crossmall.controller;
 
+import edu.cafuc.crossmall.config.SecurityAuthSupport;
 import edu.cafuc.crossmall.pojo.Merchant;
 import edu.cafuc.crossmall.pojo.User;
 import edu.cafuc.crossmall.service.MerchantService;
@@ -36,8 +37,9 @@ public class ApiloginController {
         if (login.getStatus() != null && login.getStatus() == 0) {
             return unauthorized("账号已被禁用");
         }
-        // 关键：登录成功写入 Session
+        // 登录成功：Session + Spring Security 同步
         session.setAttribute("user", login);
+        SecurityAuthSupport.login(login);
         //给前端信息
         Map<String, Object> m = singleSuccess();
         m.put("username", login.getUsername());
@@ -61,6 +63,7 @@ public class ApiloginController {
 
     @PostMapping("/userLogout")
     public ResponseEntity<Map<String, Object>> userLogout(HttpSession session) {
+        SecurityAuthSupport.logout();
         session.invalidate();
         return ResponseEntity.ok(singleSuccess());
     }

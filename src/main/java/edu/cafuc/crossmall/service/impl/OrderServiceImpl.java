@@ -1,5 +1,6 @@
 package edu.cafuc.crossmall.service.impl;
 
+import edu.cafuc.crossmall.exception.BusinessException;
 import edu.cafuc.crossmall.mapper.*;
 import edu.cafuc.crossmall.pojo.Cart;
 import edu.cafuc.crossmall.pojo.Logistics;
@@ -62,7 +63,7 @@ public class OrderServiceImpl implements OrderService {
             try {
                 List<Cart> carts = cartMapper.selectCartByUserId(userId);
                 if (carts == null || carts.isEmpty()) {
-                    throw new RuntimeException("购物车没有货物");
+                    throw new BusinessException("购物车没有货物");
                 }
                 //amount计算
                 BigDecimal totalAmount = BigDecimal.ZERO;
@@ -70,10 +71,10 @@ public class OrderServiceImpl implements OrderService {
                     Long productId = cart.getProductId();
                     ProductVO productvo = productMapper.selectProductById(productId);
                     if (productvo == null) {
-                        throw new RuntimeException("商品已经下架，请重试");
+                        throw new BusinessException("商品已经下架，请重试");
                     }
                     if(productService.selectStockById(productId) < cart.getQuantity()){
-                        throw new RuntimeException("库存不够，请重试");
+                        throw new BusinessException("库存不够，请重试");
                     }
                     BigDecimal price = productvo.getPrice();
                     price = price.multiply(new BigDecimal(cart.getQuantity()));
@@ -99,7 +100,7 @@ public class OrderServiceImpl implements OrderService {
                     //更新库存
                     Integer rows = productService.deductStock(productId, quantity);
                     if(rows == 0){
-                        throw new RuntimeException("更新库存失败失败，请重试");
+                        throw new BusinessException("更新库存失败失败，请重试");
                     }
                 }
                 //清空购物车
@@ -109,7 +110,7 @@ public class OrderServiceImpl implements OrderService {
                 // 订单号冲突，重新生成再试
             }
         }
-        throw new RuntimeException("生成订单号失败，请重试");
+        throw new BusinessException("生成订单号失败，请重试");
     }
 
     private String generateOrderNo() {
@@ -121,7 +122,7 @@ public class OrderServiceImpl implements OrderService {
             seq = Integer.parseInt(maxOrderNo.substring(prefix.length())) + 1;
         }
         if (seq > 9999) {
-            throw new RuntimeException("当日订单号已用尽，请明天再试");
+            throw new BusinessException("当日订单号已用尽，请明天再试");
         }
         return prefix + String.format("%04d", seq);
     }
@@ -167,13 +168,13 @@ public class OrderServiceImpl implements OrderService {
             Long productId = orderItem.getProductId();
             Integer rows = productService.addStock(productId, quantity);
             if(rows == 0){
-                throw new RuntimeException("更新库存失败，请重试");
+                throw new BusinessException("更新库存失败，请重试");
             }
         }
         //删除订单详情
         Integer rows = orderItemMapper.deleteOrderItemById(orderId);
         if(rows == 0){
-            throw new RuntimeException("删除订单详情失败，请重试");
+            throw new BusinessException("删除订单详情失败，请重试");
         }
         return orderMapper.deleteOrderByOrderNo(orderNo,userId);
     }
@@ -266,14 +267,14 @@ public class OrderServiceImpl implements OrderService {
     public Integer payOrder(String orderNo, Long userId) {
         Order order = orderMapper.selectOrderByOrderNo(orderNo, userId);
         if (order == null) {
-            throw new RuntimeException("订单不存在");
+            throw new BusinessException("订单不存在");
         }
         if (order.getStatus() != 0) {
-            throw new RuntimeException("订单状态不允许支付");
+            throw new BusinessException("订单状态不允许支付");
         }
         Payment existing = paymentMapper.selectByOrderId(order.getId());
         if (existing != null && Integer.valueOf(1).equals(existing.getStatus())) {
-            throw new RuntimeException("订单已支付");
+            throw new BusinessException("订单已支付");
         }
 
         Payment payment = new Payment();
@@ -291,7 +292,7 @@ public class OrderServiceImpl implements OrderService {
             paymentRows = paymentMapper.insertPayment(payment);
         }
         if (paymentRows == null || paymentRows <= 0) {
-            throw new RuntimeException("支付记录写入失败");
+            throw new BusinessException("支付记录写入失败");
         }
 
         return orderMapper.updateOrderStatus(orderNo, userId, 1, 0);
@@ -303,13 +304,13 @@ public class OrderServiceImpl implements OrderService {
                                LocalDateTime estimatedArrival, String content) {
         Order order = requireSellerOrder(orderNo, sellerUserId);
         if (order.getStatus() != 1) {
-            throw new RuntimeException("仅已支付订单可发货");
+            throw new BusinessException("仅已支付订单可发货");
         }
         if (logisticsMapper.selectByOrderId(order.getId()) != null) {
-            throw new RuntimeException("该订单已发货，请使用更新物流接口");
+            throw new BusinessException("该订单已发货，请使用更新物流接口");
         }
         if (company == null || company.isBlank()) {
-            throw new RuntimeException("请填写物流公司");
+            throw new BusinessException("请填写物流公司");
         }
 
         Logistics logistics = new Logistics();
@@ -327,7 +328,7 @@ public class OrderServiceImpl implements OrderService {
 
         Integer rows = orderMapper.updateOrderStatusByOrderNo(orderNo, 2, 1);
         if (rows == 0) {
-            throw new RuntimeException("更新订单状态失败");
+            throw new BusinessException("更新订单状态失败");
         }
         return logistics;
     }
@@ -338,18 +339,18 @@ public class OrderServiceImpl implements OrderService {
         Order order = requireSellerOrder(orderNo, sellerUserId);
         Logistics logistics = logisticsMapper.selectByOrderId(order.getId());
         if (logistics == null) {
-            throw new RuntimeException("该订单尚未发货，请先发货");
+            throw new BusinessException("该订单尚未发货，请先发货");
         }
         Integer currentStatus = logistics.getStatus();
         if (currentStatus != null && (currentStatus == 2 || currentStatus == 3)) {
-            throw new RuntimeException("物流已送达或已签收，无法修改");
+            throw new BusinessException("物流已送达或已签收，无法修改");
         }
         if (status != null) {
             if (status == 0 || status == 2) {
-                throw new RuntimeException("物流状态不允许该操作");
+                throw new BusinessException("物流状态不允许该操作");
             }
             if (status != 1 && status != 3) {
-                throw new RuntimeException("物流状态无效");
+                throw new BusinessException("物流状态无效");
             }
         }
         if (company != null && !company.isBlank()) {
@@ -375,14 +376,14 @@ public class OrderServiceImpl implements OrderService {
         Order order = requireSellerOrder(orderNo, sellerUserId);
         Logistics logistics = logisticsMapper.selectByOrderId(order.getId());
         if (logistics == null) {
-            throw new RuntimeException("该订单尚未发货，请先发货");
+            throw new BusinessException("该订单尚未发货，请先发货");
         }
         Integer currentStatus = logistics.getStatus();
         if (currentStatus != null && (currentStatus == 2 || currentStatus == 3)) {
-            throw new RuntimeException("物流已送达或已签收，无法追加轨迹");
+            throw new BusinessException("物流已送达或已签收，无法追加轨迹");
         }
         if (content == null || content.isBlank()) {
-            throw new RuntimeException("请填写轨迹描述");
+            throw new BusinessException("请填写轨迹描述");
         }
         LocalDateTime time = trackTime != null ? trackTime : LocalDateTime.now();
         return insertTrack(logistics.getId(), content.trim(), time);
@@ -394,10 +395,10 @@ public class OrderServiceImpl implements OrderService {
         Order order = requireSellerOrder(orderNo, sellerUserId);
         Logistics logistics = logisticsMapper.selectByOrderId(order.getId());
         if (logistics == null) {
-            throw new RuntimeException("该订单尚未发货，无法换货补发");
+            throw new BusinessException("该订单尚未发货，无法换货补发");
         }
         if (company == null || company.isBlank()) {
-            throw new RuntimeException("请填写物流公司");
+            throw new BusinessException("请填写物流公司");
         }
 
         String trackingNo = generateTrackingNo(company);
@@ -405,7 +406,7 @@ public class OrderServiceImpl implements OrderService {
         logistics.setTrackingNo(trackingNo);
         Integer rows = logisticsMapper.updateLogisticsReship(logistics);
         if (rows == null || rows == 0) {
-            throw new RuntimeException("换货补发失败，请重试");
+            throw new BusinessException("换货补发失败，请重试");
         }
 
         insertTrack(logistics.getId(),
@@ -417,7 +418,7 @@ public class OrderServiceImpl implements OrderService {
     private Order requireSellerOrder(String orderNo, Long sellerUserId) {
         Order order = orderMapper.selectOrderForSeller(orderNo, sellerUserId);
         if (order == null) {
-            throw new RuntimeException("订单不存在或无权操作");
+            throw new BusinessException("订单不存在或无权操作");
         }
         return order;
     }
@@ -445,7 +446,7 @@ public class OrderServiceImpl implements OrderService {
             seq = Integer.parseInt(maxNo.substring(fullPrefix.length())) + 1;
         }
         if (seq > 9999) {
-            throw new RuntimeException("当日序号已用尽，请明天再试");
+            throw new BusinessException("当日序号已用尽，请明天再试");
         }
         return String.format("%04d", seq);
     }

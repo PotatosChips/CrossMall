@@ -1,5 +1,6 @@
 package edu.cafuc.crossmall.service.impl;
 
+import edu.cafuc.crossmall.exception.BusinessException;
 import edu.cafuc.crossmall.mapper.CategoryMapper;
 import edu.cafuc.crossmall.mapper.MerchantMapper;
 import edu.cafuc.crossmall.mapper.ProductMapper;
@@ -53,7 +54,7 @@ public class ProductServiceImpl implements ProductService {
         Long categoryId = requireCategoryId(categoryName);
         Long merchantId = merchantMapper.selectMerchantIdByUserId(userId);
         if (merchantId == null) {
-            throw new RuntimeException("未找到店铺信息");
+            throw new BusinessException("未找到店铺信息");
         }
         Product product = new Product();
         product.setProductName(productName.trim());
@@ -93,7 +94,7 @@ public class ProductServiceImpl implements ProductService {
                                  BigDecimal price, String description, Integer stock, Integer status, Long userId) {
         validateProductFields(productName, categoryName, price, stock);
         if (status == null || (status != 0 && status != 1)) {
-            throw new RuntimeException("商品状态无效");
+            throw new BusinessException("商品状态无效");
         }
         Long categoryId = requireCategoryId(categoryName);
         Long merchantId = requireMerchantId(userId);
@@ -137,7 +138,7 @@ public class ProductServiceImpl implements ProductService {
     private Long requireCategoryId(String categoryName) {
         Long categoryId = categoryMapper.selectCategoryIdByName(categoryName);
         if (categoryId == null) {
-            throw new RuntimeException("分类不存在");
+            throw new BusinessException("分类不存在");
         }
         return categoryId;
     }
@@ -145,23 +146,23 @@ public class ProductServiceImpl implements ProductService {
     private Long requireMerchantId(Long userId) {
         Long merchantId = merchantMapper.selectMerchantIdByUserId(userId);
         if (merchantId == null) {
-            throw new RuntimeException("未找到店铺信息");
+            throw new BusinessException("未找到店铺信息");
         }
         return merchantId;
     }
 
     private void validateProductFields(String productName, String categoryName, BigDecimal price, Integer stock) {
         if (productName == null || productName.isBlank()) {
-            throw new RuntimeException("商品名称不能为空");
+            throw new BusinessException("商品名称不能为空");
         }
         if (categoryName == null || categoryName.isBlank()) {
-            throw new RuntimeException("请选择分类");
+            throw new BusinessException("请选择分类");
         }
         if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("价格必须大于 0");
+            throw new BusinessException("价格必须大于 0");
         }
         if (stock == null || stock < 0) {
-            throw new RuntimeException("库存不能为负数");
+            throw new BusinessException("库存不能为负数");
         }
     }
 }

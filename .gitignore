@@ -13,6 +13,11 @@ target/
 .springBeans
 .sts4-cache
 
+### markdown ###
+Request.md
+AGENTS.md
+Error.md
+
 ### IntelliJ IDEA ###
 .idea
 *.iws
@@ -37,3 +42,5 @@ build/
 /org/
 /log4j2.springboot
 *.class
+
+

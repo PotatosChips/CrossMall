@@ -45,6 +45,7 @@ public class ApiloginController {
         m.put("username", login.getUsername());
         m.put("nickname", login.getNickname());
         m.put("role", login.getRole());
+        putMerchantIdIfSeller(m, login);
         return ResponseEntity.ok(m);
     }
 
@@ -58,7 +59,17 @@ public class ApiloginController {
         m.put("username", user.getUsername());
         m.put("nickname", user.getNickname());
         m.put("role", user.getRole());
+        putMerchantIdIfSeller(m, user);
         return ResponseEntity.ok(m);
+    }
+
+    private void putMerchantIdIfSeller(Map<String, Object> m, User user) {
+        if (user.getRole() != null && user.getRole() == 1) {
+            Long merchantId = merchantService.selectMerchantIdByUserId(user.getId());
+            if (merchantId != null) {
+                m.put("merchantId", merchantId);
+            }
+        }
     }
 
     @PostMapping("/userLogout")

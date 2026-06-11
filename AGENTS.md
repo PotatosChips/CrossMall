@@ -5,12 +5,12 @@
 
 ## 项目组成
 
-| 项目 | 路径 | 说明 |
-|------|------|------|
-| 后端 | `cross-mall/` | Spring Boot REST API |
-| 前端 | `../crossmall-vue/` | Vue 3 + Vite SPA |
+| 项目 | 路径 | GitHub |
+|------|------|--------|
+| 后端 | `cross-mall/` | https://github.com/PotatosChips/CrossMall |
+| 前端 | `../crossmall-vue/` | https://github.com/PotatosChips/CrossMall-Vue |
 
-两个目录同级，均在 `Desktop/java/` 下。
+两个目录**同级**（本地 `Desktop/java/`；服务器建议 `/opt/crossmall/`）。**各自独立 Git 仓库**，改哪边就在哪边 `git push`。
 
 ## 技术栈
 
@@ -30,6 +30,8 @@
 
 ## 启动方式
 
+### 本地开发（写代码用）
+
 ```bash
 # Redis（WSL Ubuntu 内 apt 安装；默认 localhost:6379）
 # 已在 WSL 内：redis-cli ping  → PONG 即可
@@ -48,6 +50,61 @@ npm run dev
 
 访问商城：`http://localhost:5173/products`  
 开发时 API 走 Vite 代理，**不要**直接改 axios baseURL 为 8080。
+
+### Docker 部署（答辩 / 服务器 / 一键全套）
+
+```bash
+# 在 cross-mall 目录（crossmall-vue 须同级 ../crossmall-vue）
+docker compose up -d --build
+docker compose ps
+docker compose logs -f backend
+```
+
+访问：`http://localhost/products`（端口 **80**，不是 5173）
+
+**与本地开发的区别**：Docker 内是**独立一套** MySQL + Redis + 后端 + Nginx；数据首次从 `sql.sql` + `data.sql` 导入，与本机 MySQL/WSL Redis **不共用**。仅 `frontend` 映射宿主机 80，MySQL/Redis 不映射，避免和本机 3306/6379 冲突。
+
+改代码后重新部署：`docker compose up -d --build`（只改后端可加 `backend`，只改前端可加 `frontend`）。
+
+## Docker 部署（已实现）
+
+**文件位置**
+
+| 文件 | 说明 |
+|------|------|
+| `cross-mall/Dockerfile` | 后端多阶段构建（Maven → JRE）；基础镜像用 `docker.m.daocloud.io` 防国内拉取失败 |
+| `cross-mall/docker-compose.yml` | MySQL 8 + Redis 7 + backend + frontend(Nginx) |
+| `cross-mall/src/main/resources/application-docker.yml` | 容器内连 `mysql`/`redis` 服务名；profile `docker` |
+| `crossmall-vue/Dockerfile` | Node build → Nginx 托管 |
+| `crossmall-vue/nginx.conf` | 静态页 + `/api/` 反代 `backend:8080`；SPA `try_files` |
+
+**compose 四容器**：`crossmall-mysql`、`crossmall-redis`、`crossmall-backend`、`crossmall-frontend`（对外 80）。
+
+**服务器最低配置**：2 核 **2G** 内存（0.5G/1G 易 OOM）；Ubuntu 24.04；安全组放行 **22**、**80**。
+
+**服务器首次部署**
+
+```bash
+apt update && apt install -y docker.io docker-compose-v2
+systemctl start docker && systemctl enable docker
+
+mkdir -p /opt/crossmall && cd /opt/crossmall
+git clone https://github.com/PotatosChips/CrossMall.git cross-mall
+git clone https://github.com/PotatosChips/CrossMall-Vue.git crossmall-vue
+
+cd cross-mall
+docker compose up -d --build
+```
+
+国内服务器可在 `/etc/docker/daemon.json` 配 `"registry-mirrors": ["https://docker.m.daocloud.io"]` 后 `systemctl restart docker`。
+
+**更新代码（服务器）**
+
+```bash
+cd /opt/crossmall/cross-mall
+git pull && git -C ../crossmall-vue pull   # 按需
+docker compose up -d --build
+```
 
 ## 数据库
 
@@ -92,6 +149,7 @@ npm run dev
 | 11 | 管理员后台 | ✅ 已完成（分类 CRUD + 用户封禁/解封） |
 | 12 | Redis（Session + 分类/地区缓存） | ✅ 已完成 |
 | 13 | Spring Security 鉴权（Session → SecurityContext） | ✅ 已完成 |
+| 14 | Docker 部署（compose + Nginx + 双仓库） | ✅ 已完成 |
 
 **MVP 结论**：`request.md` 规划的核心业务流程（买家/卖家/管理员）**已全部打通**，可作为课程答辩/demo 的完整版本。下文「未实现」为可选增强，不影响 MVP 交付。
 
@@ -357,7 +415,11 @@ pojo/
 ### 后端资源
 
 ```
+Dockerfile
+docker-compose.yml
+.dockerignore
 resources/application.yml
+resources/application-docker.yml   # SPRING_PROFILES_ACTIVE=docker
 resources/mapper/
   UserMapper.xml, MerchantMapper.xml
   CategoryMapper.xml, ProductMapper.xml
@@ -367,10 +429,13 @@ resources/mapper/
   AfterSaleMapper.xml
 ```
 
-### 前端 `crossmall-vue/src/`
+### 前端 `crossmall-vue/`
 
 ```
-api/request.js, product.js, cart.js, order.js, seller.js, shop.js, review.js, afterSale.js, admin.js
+Dockerfile
+nginx.conf
+.dockerignore
+src/api/request.js, product.js, cart.js, order.js, seller.js, shop.js, review.js, afterSale.js, admin.js
 utils/orderMeta.js, productMeta.js, afterSaleMeta.js, adminMeta.js
 composables/useUser.js, useAuthDialog.js
 components/AuthDialog.vue
@@ -613,6 +678,11 @@ const res = await request.get('/order')
 | 后端启动报 Redis 连接失败 | WSL 内 `redis-cli ping`；失败则 `sudo service redis-server start` |
 | Session 不进 Redis | 确认 `@EnableRedisHttpSession`；登录后查 `redis-cli keys "*"` |
 | `readValue` / `TypeReference` 编译错 | import 用 `tools.jackson.core.type.TypeReference`，勿用 `org.apache.ibatis.type.TypeReference` |
+| Docker 构建镜像 429 / 拉取失败 | Dockerfile 已用 `docker.m.daocloud.io`；或配 daemon.json 镜像加速 |
+| `docker compose` 找不到 frontend | `crossmall-vue` 必须与 `cross-mall` **同级**；compose 里 `context: ../crossmall-vue` |
+| Docker 内登录失败 / 401 | 确认四容器 Up；`docker compose logs backend`；等 MySQL healthy 后再访问 |
+| 服务器 SSH Connection refused | 实例是否运行中；防火墙放行 22；新建实例等 2～5 分钟；重置 root 密码并重启 |
+| Docker 与本地数据不一致 | 正常；两套库。清 Docker 数据：`docker compose down -v` 再 up |
 
 ## 编码约定
 
@@ -631,6 +701,6 @@ const res = await request.get('/order')
 
 - 新增/完成 Controller、前端页面、鉴权变更
 - MVP 某模块完成（如评价、店铺、卖家商品）
-- 端口、代理、数据库、Security 放行路径变更
+- 端口、代理、数据库、Security 放行路径、Docker/部署流程变更
 - 确认或修复鉴权、Security 放行路径变更
 - 管理员模块、全局异常、Redis 扩展（商品缓存等）落地或变更

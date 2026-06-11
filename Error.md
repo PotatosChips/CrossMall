@@ -156,3 +156,76 @@
 
 物流 `logistics.status`（0待发货 1运输中 2已签收）与支付无关；发货时订单变 2，物流初始为 1（运输中）。
 
+---
+
+## Spring Security 登录态（Session 与 SecurityContext 不同步）
+
+### 现象
+
+- 商户/买家**登录成功**，导航栏显示已登录（卖家菜单、用户名可见）
+- 点「购物车」「我的订单」「店铺订单」「店铺售后」等 → 接口 **401**，前端弹「请先登录」
+- `/api/userInfo` 正常返回用户信息，但 `/api/cart`、`/api/order/seller`、`/api/after-sales/seller` 等返回 401
+- Docker 部署（`http://IP/` 经 Nginx 反代）与本地开发均可能出现
+
+### 根因：两套鉴权各走各的
+
+| 机制 | 谁在用 | 登录时写了什么 |
+|------|--------|----------------|
+| **HttpSession** | `ApiloginController.userInfo` 读 `session.getAttribute("user")` | ✅ `session.setAttribute("user", login)` |
+| **Spring Security SecurityContext** | `SecurityConfig` 的 `authenticated()`、`@PreAuthorize` | ⚠️ 仅 `SecurityAuthSupport.login()` 写入**当前请求线程**，未保证后续请求恢复 |
+
+业务接口（购物车、订单、售后）走 Spring Security 的 `authenticated()` / `hasRole('SELLER')`，必须 SecurityContext 里有真实用户；  
+`/api/userInfo` 直接读 Session，所以会出现「看起来已登录，业务接口却 401」。
+
+### 踩坑 1：Spring Security 6+ 默认不自动持久化 SecurityContext
+
+Spring Boot 4 / Spring Security 6 起，SecurityContext **默认 `requireExplicitSave(true)`**，登录请求里 `SecurityContextHolder.setAuthentication()` 只存在于当次请求，**不会自动写入 Session** 供下次请求使用。
+
+### 踩坑 2：匿名用户的 `isAuthenticated()` 也是 true
+
+Spring Security 会给未登录请求注入 `AnonymousAuthenticationToken`，其 **`isAuthenticated()` 返回 true**（表示「匿名身份已建立」），但 **`authenticated()` 规则会拒绝匿名用户**。
+
+若 Session 恢复过滤器写成：
+
+```java
+if (current == null || !current.isAuthenticated()) { ... }
+```
+
+匿名用户会被当成「已认证」，**不会**从 Session 的 `user` 属性恢复真实登录态 → 业务接口持续 401。
+
+正确判断：当前为 `null`、或为 `AnonymousAuthenticationToken`、或 `principal` 不是 `User` 时，才从 Session 恢复。
+
+### 修复（已实现）
+
+1. **`SessionUserAuthenticationFilter`**（`config/SessionUserAuthenticationFilter.java`）  
+   每个请求在鉴权前检查 SecurityContext；若不满足真实登录，则从 `session.getAttribute("user")` 调用 `SecurityAuthSupport.login(user)` 写回 SecurityContext。
+
+2. **`SecurityConfig`**  
+   - `.securityContext(c -> c.requireExplicitSave(false))`：登录请求的 SecurityContext 在请求结束时写入 Session  
+   - `.addFilterBefore(new SessionUserAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)`
+
+3. **登录流程保持不变**（`ApiloginController`）：Session 与 SecurityContext 双写  
+   `session.setAttribute("user", login)` + `SecurityAuthSupport.login(login)`
+
+### 401 vs 403 对照
+
+| HTTP | 含义 | 常见原因 |
+|------|------|----------|
+| **401** | 未登录（SecurityContext 无真实用户） | Session 有 user 但未恢复到 SecurityContext；或未带 Cookie |
+| **403** | 已登录但角色不符 | 买家访问 `/api/seller/**`；非管理员访问 `/api/admin/**` |
+
+### 排查清单
+
+```bash
+# 登录后 Session 是否进 Redis（容器内）
+docker exec crossmall-redis redis-cli keys "spring:session:*"
+
+# 经 Nginx 模拟登录 + 带 Cookie 访问卖家订单
+curl -c cookies.txt -X POST "http://localhost/api/userLogin" -d "username=seller_us&password=123456"
+curl -b cookies.txt "http://localhost/api/order/seller"
+```
+
+- 若 `userInfo` 200 但 `order/seller` 401 → 优先查 SecurityContext 是否从 Session 恢复（本节问题）
+- 若全部 401 → 查浏览器是否携带 `SESSION` Cookie、Nginx 是否反代 `/api/`
+- 改 backend 后须重建：`docker compose up -d --build backend`
+

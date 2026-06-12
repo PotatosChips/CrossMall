@@ -3,6 +3,5 @@ target/
 .idea/
 *.iml
 .mvn/wrapper/maven-wrapper.jar
-HELP.md
 Error.md
 Request.md

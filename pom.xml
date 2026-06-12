@@ -72,6 +72,12 @@
             <groupId>org.springframework.session</groupId>
             <artifactId>spring-session-data-redis</artifactId>
         </dependency>
+        <!-- Redisson 整合SpringBoot（分布式锁核心） -->
+        <dependency>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson-spring-boot-starter</artifactId>
+            <version>4.5.0</version>
+        </dependency>
         <!-- Spring Security 用户登录校验、角色权限管控（买家 / 商家 / 管理员）-->
         <dependency>
             <groupId>org.springframework.boot</groupId>

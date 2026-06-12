@@ -7,6 +7,7 @@ import edu.cafuc.crossmall.mapper.ProductMapper;
 import edu.cafuc.crossmall.pojo.Product;
 import edu.cafuc.crossmall.pojo.vo.ProductVO;
 import edu.cafuc.crossmall.service.ProductService;
+import edu.cafuc.crossmall.service.RedisLockService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +23,8 @@ public class ProductServiceImpl implements ProductService {
     private CategoryMapper categoryMapper;
     @Autowired
     private MerchantMapper merchantMapper;
+    @Autowired
+    private RedisLockService redisLockService;
 
     @Override
     public List<ProductVO> selectProductList(String categoryName, Long merchantId, String region, String keyword, String sort, Integer page, Integer pageSize) {
@@ -112,20 +115,19 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public Integer deductStock(Long id, Integer quantity) {
-        Integer currentStock = productMapper.selectStockById(id);
-        if (currentStock == null || quantity == null || quantity <= 0 || currentStock < quantity) {
+        if (id == null || quantity == null || quantity <= 0) {
             return 0;
         }
-        return productMapper.updateStock(id, currentStock - quantity);
+        return redisLockService.executeWithProductLock(id, () ->
+                productMapper.deductStock(id, quantity)
+        );
     }
-
     @Override
     public Integer addStock(Long id, Integer quantity) {
-        Integer currentStock = productMapper.selectStockById(id);
-        if (currentStock == null || quantity == null) {
+        if (id == null || quantity == null || quantity <= 0) {
             return 0;
         }
-        return productMapper.updateStock(id, currentStock + quantity);
+        return productMapper.addStock(id, quantity);
     }
 
     private Long resolveCategoryId(String categoryName) {

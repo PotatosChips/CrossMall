@@ -27,6 +27,7 @@ import java.util.List;
 
 @Service
 public class OrderServiceImpl implements OrderService {
+    //运单号生成
     private static final String ORDER_NO_PREFIX = "CM";
     private static final String TRACKING_NO_PREFIX = "TN";
     private static final String PAY_NO_PREFIX = "TN";
@@ -73,9 +74,9 @@ public class OrderServiceImpl implements OrderService {
                     if (productvo == null) {
                         throw new BusinessException("商品已经下架，请重试");
                     }
-                    if(productService.selectStockById(productId) < cart.getQuantity()){
-                        throw new BusinessException("库存不够，请重试");
-                    }
+//                    if(productService.selectStockById(productId) < cart.getQuantity()){
+//                        throw new BusinessException("库存不够，请重试");
+//                    }
                     BigDecimal price = productvo.getPrice();
                     price = price.multiply(new BigDecimal(cart.getQuantity()));
                     totalAmount = totalAmount.add(price);
@@ -100,7 +101,7 @@ public class OrderServiceImpl implements OrderService {
                     //更新库存
                     Integer rows = productService.deductStock(productId, quantity);
                     if(rows == 0){
-                        throw new BusinessException("更新库存失败失败，请重试");
+                        throw new BusinessException("库存不够，请重试");
                     }
                 }
                 //清空购物车

@@ -34,8 +34,10 @@ public interface ProductMapper {
     /** 根据 id 查询库存，用于加购/下单前校验 */
     Integer selectStockById(Long id);
 
-    /** 扣减库存（下单时使用，stock 为扣减后的剩余库存） */
-    Integer updateStock(@Param("id") Long id, @Param("stock") Integer stock);
+    /** 更新库存 */
+    Integer deductStock(@Param("id") Long id, @Param("quantity") Integer quantity);
+
+    Integer addStock(@Param("id") Long id, @Param("quantity") Integer quantity);
 
     /** 卖家：分页查询本店商品（含下架） */
     List<ProductVO> selectProductListByMerchantId(@Param("merchantId") Long merchantId,

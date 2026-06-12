@@ -110,10 +110,17 @@
           AND status = 1
     </select>
 
-    <!-- 更新库存（下单，删除订单，添货，stock 为扣减后的剩余库存） -->
-    <update id="updateStock">
+    <!-- 更新库存（下单，删除订单，添货） -->
+    <update id="deductStock">
         UPDATE product
-        SET stock = #{stock}
+        SET stock = stock - #{quantity}
+        WHERE id = #{id}
+          AND status = 1
+          AND stock >= #{quantity}
+    </update>
+    <update id="addStock">
+        UPDATE product
+        SET stock = stock + #{quantity}
         WHERE id = #{id}
           AND status = 1
     </update>

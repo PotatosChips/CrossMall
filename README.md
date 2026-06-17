@@ -19,8 +19,3 @@ CrossMall 是一个**跨境电商平台**的后端服务，提供 REST API，支
 - 卖家商品管理、订单发货
 - 管理员分类与用户管理
 
-## 快速启动
-
-```bash
-# 需先准备 MySQL、Redis，并导入 sql.sql、data.sql
-./mvnw spring-boot:run

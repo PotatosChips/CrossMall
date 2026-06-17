@@ -3,12 +3,13 @@ package edu.cafuc.crossmall.controller;
 import edu.cafuc.crossmall.config.SecurityAuthSupport;
 import edu.cafuc.crossmall.pojo.Merchant;
 import edu.cafuc.crossmall.pojo.User;
+import edu.cafuc.crossmall.security.JwtTokenProvider;
 import edu.cafuc.crossmall.service.MerchantService;
 import edu.cafuc.crossmall.service.UserService;
-import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,14 +23,15 @@ import java.util.Map;
 
 @RequestMapping("/api")
 public class ApiloginController {
-
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
     @Autowired
     UserService userService;
     @Autowired
     MerchantService merchantService;
 
     @PostMapping("/userLogin")
-    public ResponseEntity<Map<String, Object>> userLogin(String username, String password, HttpSession session) {
+    public ResponseEntity<Map<String, Object>> userLogin(String username, String password) {
         User login = userService.Userlogin(username, password);
         if (login == null) {
             return unauthorized("用户名与密码不匹配");
@@ -37,11 +39,13 @@ public class ApiloginController {
         if (login.getStatus() != null && login.getStatus() == 0) {
             return unauthorized("账号已被禁用");
         }
-        // 登录成功：Session + Spring Security 同步
-        session.setAttribute("user", login);
-        SecurityAuthSupport.login(login);
+        String token = jwtTokenProvider.createToken(login);
+//        // 登录成功：Session + Spring Security 同步
+//        session.setAttribute("user", login);
+//        SecurityAuthSupport.login(login);
         //给前端信息
         Map<String, Object> m = singleSuccess();
+        m.put("token", token);
         m.put("username", login.getUsername());
         m.put("nickname", login.getNickname());
         m.put("role", login.getRole());
@@ -50,8 +54,7 @@ public class ApiloginController {
     }
 
     @GetMapping("/userInfo")
-    public ResponseEntity<Map<String, Object>> userInfo(HttpSession session) {
-        User user = (User) session.getAttribute("user");
+    public ResponseEntity<Map<String, Object>> userInfo(@AuthenticationPrincipal User user) {
         if (user == null) {
             return unauthorized("请先登录");
         }
@@ -73,9 +76,9 @@ public class ApiloginController {
     }
 
     @PostMapping("/userLogout")
-    public ResponseEntity<Map<String, Object>> userLogout(HttpSession session) {
-        SecurityAuthSupport.logout();
-        session.invalidate();
+    public ResponseEntity<Map<String, Object>> userLogout() {
+//        SecurityAuthSupport.logout();
+//        session.invalidate();
         return ResponseEntity.ok(singleSuccess());
     }
     @PostMapping("/userRegister")

@@ -4,7 +4,7 @@ spring:
   application:
      name: CrossMall
   datasource:
-     url: jdbc:mysql://localhost:3306/cross-mall?serverTimezone=UTC&characterEncoding=utf8&useUnicode=true&useSSL=false&allowMultiQueries=true
+     url: jdbc:mysql://localhost:3306/cross-mall?serverTimezone=UTC&characterEncoding=utf8&useUnicode=true&useSSL=false&allowMultiQueries=true&allowPublicKeyRetrieval=true
      username: root
      password: 123456
      driver-class-name: com.mysql.cj.jdbc.Driver
@@ -14,9 +14,12 @@ spring:
       host: localhost
       port: 6379
       # password: xxx    # 有密码才写
-  session:
-    store-type: redis
-    timeout: 30m
+#  session:
+#    store-type: redis
+#    timeout: 30m
+jwt:
+  secret: "crossmall-jwt-secret-key-at-least-32-chars!!"
+  expiration-ms: 7200000   # 2 小时
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   configuration:

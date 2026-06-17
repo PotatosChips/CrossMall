@@ -22,6 +22,7 @@ public class RedisLockService {
     private RedissonClient redissonClient;
 
     /** 按商品 id 加锁执行，有返回值 */
+    //泛型<T>，让这个方法能适配不同返回类型
     public <T> T executeWithProductLock(Long productId, Supplier<T> action) {
         if (productId == null) {
             throw new BusinessException("商品不存在");
@@ -34,11 +35,14 @@ public class RedisLockService {
             if (!locked) {
                 throw new BusinessException("系统繁忙，请重试");
             }
-            return action.get();
+            return action.get();//执行调用方传入的逻辑并返回，即deductStock
         } catch (InterruptedException e) {
+            //作用是 把中断标志重新设回去，表示「我知道被中断了，并已按约定处理」。常见后续是抛业务异常，让调用方知道操作没完成。
             Thread.currentThread().interrupt();
             throw new BusinessException("操作被中断，请重试");
         } finally {
+            //finally 无论 try 成功、抛业务异常，还是 catch 里抛异常，都会执行。
+            //释放锁
             if (locked && lock.isHeldByCurrentThread()) {
                 lock.unlock();
             }
